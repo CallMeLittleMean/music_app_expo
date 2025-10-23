@@ -12,6 +12,7 @@ export function PlayerProvider({ children }) {
   const [duration, setDuration] = useState(1);
   const [isShuffle, setIsShuffle] = useState(false);
   const [repeatMode, setRepeatMode] = useState('off'); // off | one | all
+  const [volume, setVolume] = useState(1.0); // Volume từ 0.0 đến 1.0
 
   const soundRef = useRef(null);
   const isLoadingRef = useRef(false);
@@ -104,6 +105,20 @@ export function PlayerProvider({ children }) {
   useEffect(() => { playlistRef.current = playlist; }, [playlist]);
   useEffect(() => { repeatModeRef.current = repeatMode; }, [repeatMode]);
   useEffect(() => { isShuffleRef.current = isShuffle; }, [isShuffle]);
+
+  // Update volume when changed
+  useEffect(() => {
+    const updateVolume = async () => {
+      if (soundRef.current) {
+        try {
+          await soundRef.current.setVolumeAsync(volume);
+        } catch (error) {
+          console.error('Error setting volume:', error);
+        }
+      }
+    };
+    updateVolume();
+  }, [volume]);
 
   // Safely unload current sound
   const unloadCurrent = useCallback(async () => {
@@ -313,6 +328,8 @@ export function PlayerProvider({ children }) {
     duration,
     isShuffle,
     repeatMode,
+    volume,
+    setVolume,
     // refs / sound
     soundRef,
     // controls

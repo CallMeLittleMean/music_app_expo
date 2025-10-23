@@ -553,49 +553,101 @@ export default function HomeScreen({ navigation }) {
       </Modal>
 
       {/* Modal playlist */}
-      <Modal visible={modalVisible} transparent animationType="slide">
+      <Modal visible={modalVisible} transparent animationType="fade">
         <View style={styles.modalBackground}>
           <View style={styles.modalContainer}>
-            <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 10, color: '#0dc974' }}>
-              Thêm vào Playlist
-            </Text>
-
-            {/* Danh sách playlist */}
-            {playlists.length === 0 && (
-              <Text style={{ color: '#aaa', marginBottom: 10 }}>Chưa có playlist nào</Text>
-            )}
-            {playlists.map(pl => (
+            {/* Header */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Ionicons name="musical-notes" size={24} color="#0dc974" style={{ marginRight: 8 }} />
+                <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#fff' }}>
+                  Thêm vào Playlist
+                </Text>
+              </View>
               <TouchableOpacity
-                key={pl.id}
-                style={styles.playlistItem}
-                onPress={() => addToPlaylist(pl.id, currentSongId)}
+                onPress={() => setModalVisible(false)}
+                style={{ padding: 4 }}
               >
-                <Text style={{ color: '#fff', flex: 1 }}>{pl.name}</Text>
-                {pl.songs.includes(currentSongId) && (
-                  <Ionicons name="checkmark" size={20} color="#0dc974ff" />
-                )}
+                <Ionicons name="close-circle" size={28} color="#888" />
               </TouchableOpacity>
-            ))}
+            </View>
+
+            {/* Danh sách playlist với ScrollView */}
+            <ScrollView style={{ maxHeight: 250, marginBottom: 16 }} showsVerticalScrollIndicator={false}>
+              {playlists.length === 0 && (
+                <View style={{ alignItems: 'center', paddingVertical: 20 }}>
+                  <Ionicons name="folder-open-outline" size={48} color="#444" />
+                  <Text style={{ color: '#888', marginTop: 8, fontSize: 14 }}>Chưa có playlist nào</Text>
+                </View>
+              )}
+              {playlists.map(pl => (
+                <TouchableOpacity
+                  key={pl.id}
+                  style={styles.playlistItem}
+                  onPress={() => addToPlaylist(pl.id, currentSongId)}
+                  activeOpacity={0.7}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                    <Ionicons 
+                      name={pl.songs.includes(currentSongId) ? "checkmark-circle" : "albums-outline"} 
+                      size={24} 
+                      color={pl.songs.includes(currentSongId) ? "#0dc974" : "#9b6bff"} 
+                      style={{ marginRight: 12 }} 
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: '#fff', fontSize: 15, fontWeight: '500' }}>{pl.name}</Text>
+                      <Text style={{ color: '#888', fontSize: 12, marginTop: 2 }}>
+                        {pl.songs.length} bài hát
+                      </Text>
+                    </View>
+                  </View>
+                  {pl.songs.includes(currentSongId) && (
+                    <View style={{ 
+                      backgroundColor: 'rgba(13,201,116,0.15)', 
+                      paddingHorizontal: 10, 
+                      paddingVertical: 4, 
+                      borderRadius: 12 
+                    }}>
+                      <Text style={{ color: '#0dc974', fontSize: 11, fontWeight: 'bold' }}>✓ Đã thêm</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            {/* Divider */}
+            <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.1)', marginVertical: 16 }} />
 
             {/* Tạo playlist mới */}
-            <TextInput
-              style={styles.modalInput}
-              placeholder="Tên playlist mới..."
-              placeholderTextColor="#888"
-              value={newPlaylistName}
-              onChangeText={setNewPlaylistName}
-            />
-            <TouchableOpacity onPress={addPlaylist} style={{ alignSelf: 'flex-end', marginTop: 5 }}>
-              <Text style={{ color: '#0dc974ff', fontWeight: 'bold' }}>Tạo playlist</Text>
-            </TouchableOpacity>
-
-            {/* Đóng modal */}
-            <TouchableOpacity
-              onPress={() => setModalVisible(false)}
-              style={{ marginTop: 15, alignSelf: 'flex-end' }}
-            >
-              <Text style={{ color: '#aaa' }}>Đóng</Text>
-            </TouchableOpacity>
+            <View>
+              <Text style={{ color: '#9b6bff', fontSize: 13, fontWeight: '600', marginBottom: 8 }}>
+                TẠO PLAYLIST MỚI
+              </Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Nhập tên playlist..."
+                placeholderTextColor="#666"
+                value={newPlaylistName}
+                onChangeText={setNewPlaylistName}
+              />
+              <TouchableOpacity 
+                onPress={addPlaylist} 
+                style={{ 
+                  backgroundColor: '#0dc974', 
+                  paddingVertical: 12, 
+                  paddingHorizontal: 20, 
+                  borderRadius: 12, 
+                  alignItems: 'center',
+                  marginTop: 12,
+                  flexDirection: 'row',
+                  justifyContent: 'center'
+                }}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="add-circle-outline" size={20} color="#fff" style={{ marginRight: 6 }} />
+                <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 15 }}>Tạo Playlist</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -729,26 +781,45 @@ const styles = StyleSheet.create({
   },
   modalBackground: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: 'rgba(0,0,0,0.75)',
     justifyContent: 'center',
     alignItems: 'center'
   },
-  modalContainer: { width: '86%', backgroundColor: '#141418', borderRadius: 14, padding: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
+  modalContainer: { 
+    width: '88%', 
+    maxHeight: '70%',
+    backgroundColor: '#1a1a1f', 
+    borderRadius: 20, 
+    padding: 24, 
+    borderWidth: 1.5, 
+    borderColor: 'rgba(155,107,255,0.3)',
+    shadowColor: '#9b6bff',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
+    elevation: 10
+  },
   modalInput: {
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-    borderRadius: 10,
-    padding: 10,
+    borderWidth: 1.5,
+    borderColor: 'rgba(155,107,255,0.3)',
+    borderRadius: 12,
+    padding: 14,
     color: '#fff',
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    marginTop: 10
+    fontSize: 15,
+    backgroundColor: 'rgba(20,20,24,0.8)',
+    marginTop: 16,
+    marginBottom: 10
   },
   playlistItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.06)'
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    marginVertical: 4,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)'
   },
   // Trending & Recommended sections
   section: {

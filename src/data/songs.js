@@ -1,6 +1,33 @@
 export const songs = [
   {
     id: '1',
+    title: 'Fantasy',
+    artist: 'Nün',
+    album: 'DnD',
+    genre: 'Instrumental',
+    cover: require('../../assets/images/Fantasy.jpg'),
+    uri: require('../../assets/music/Fantasy.wav')
+  },
+  {
+    id: '2',
+    title: 'Simple Love',
+    artist: 'Obito',
+    album: 'Rap Love by Obito',
+    genre: 'Rap',
+    cover: require('../../assets/images/Simple-Love.jpg'),
+    uri: require('../../assets/music/Simple-Love.flac')
+  },
+  {
+    id: '3',
+    title: 'Tell the Kids I Love Them',
+    artist: 'Obito',
+    album: 'Rap Love by Obito',
+    genre: 'Rap',
+    cover: require('../../assets/images/Tell-the-kids-i-love-them.jpg'),
+    uri: require('../../assets/music/Tell-the-kids-i-love-them.aac')
+  },
+  {
+    id: '4',
     title: 'Shape of You',
     artist: 'Ed Sheeran',
     album: '÷ (Divide)',
@@ -10,7 +37,7 @@ export const songs = [
     lyrics: 'shapeOfYou'
   },
   {
-    id: '2',
+    id: '5',
     title: 'Xuân Đình Tuyết',
     artist: 'Đẳng Thập Ma Quân',
     album: 'Nhạc Hoa',
@@ -19,7 +46,7 @@ export const songs = [
     uri: require('../../assets/music/xdt.mp3')
   },
   {
-    id: '3',
+    id: '6',
     title: 'Ngu Hề Thán',
     artist: 'Văn Nhân Thính Thư',
     album: 'Nhạc Hoa',
@@ -28,7 +55,7 @@ export const songs = [
     uri: require('../../assets/music/NHT.mp3')
   },
   {
-    id: '4',
+    id: '7',
     title: 'Đại Thiên Bồng',
     artist: 'Lộ Gia (Lu Ye)',
     album: 'Nhạc Hoa',
@@ -37,7 +64,7 @@ export const songs = [
     uri: require('../../assets/music/DTB.mp3')
   },
   {
-    id: '5',
+    id: '8',
     title: 'The Sound of Silence',
     artist: 'Disturbed',
     album: 'Immortalized',
@@ -46,7 +73,7 @@ export const songs = [
     uri: require('../../assets/music/TSOS.mp3')
   },
   {
-    id: '6',
+    id: '9',
     title: 'One Of The Girls',
     artist: 'The Weeknd',
     album: 'The Idol',
@@ -55,7 +82,7 @@ export const songs = [
     uri: require('../../assets/music/One Of The Girls.mp3')
   },
    {
-    id: '7',
+    id: '10',
     title: 'Set Fire To The Rain',
     artist: 'ADELE',
     album: '21',
@@ -64,7 +91,7 @@ export const songs = [
     uri: require('../../assets/music/Set Fire To The Rain.mp3')
   },
    {
-    id: '8',
+    id: '11',
     title: 'Legends Never Die',
     artist: 'League Of Legends',
     album: 'League Of Legends',
@@ -73,7 +100,7 @@ export const songs = [
     uri: require('../../assets/music/Legends Never Die.mp3')
   },
    {
-    id: '9',
+    id: '12',
     title: 'Xích Linh',
     artist: 'Chấp Tố Hề',
     album: 'Nhạc Hoa',
@@ -82,7 +109,7 @@ export const songs = [
     uri: require('../../assets/music/Xich Linh.mp3')
   },
    {
-    id: '10',
+    id: '13',
     title: 'Victory',
     artist: 'Two Steps From Hell <3',
     album: 'Battlecry',
@@ -91,7 +118,7 @@ export const songs = [
     uri: require('../../assets/music/Victory.mp3')
   },
   {
-    id: '11',
+    id: '14',
     title: 'Star Sky',
     artist: 'Two Steps From Hell <3',
     album: 'Battlecry',
@@ -100,7 +127,7 @@ export const songs = [
     uri: require('../../assets/music/Star Sky.mp3')
   },
   {
-    id: '12',
+    id: '15',
     title: 'Havana',
     artist: 'Camila Cabello',
     album: 'Camila',

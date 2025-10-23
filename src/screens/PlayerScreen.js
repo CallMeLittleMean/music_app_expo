@@ -1268,8 +1268,9 @@
 
 
 // Redesigned PlayerScreen using global PlayerContext so playback persists across screens
-import React, { useContext, useEffect, useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ImageBackground, Image, Platform } from 'react-native';
+import React, { useContext, useEffect, useMemo, useState, useRef } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ImageBackground, Image, Platform, Share, Alert, Modal, Animated } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -1282,6 +1283,9 @@ export default function PlayerScreen({ route, navigation }) {
   const { song: startSong, songList, index } = route.params || {};
   const insets = useSafeAreaInsets();
   const [favorites, setFavorites] = useState([]);
+  const [downloadVisible, setDownloadVisible] = useState(false);
+  const [downloadStatus, setDownloadStatus] = useState('downloading'); // 'downloading' or 'success' or 'already'
+  const [downloadedSongs, setDownloadedSongs] = useState([]); // Danh sách bài đã tải
   const {
     playlist,
     setPlaylist,
@@ -1300,13 +1304,102 @@ export default function PlayerScreen({ route, navigation }) {
     repeatMode,
     toggleShuffle,
     toggleRepeat,
+    volume,
+    setVolume,
   } = useContext(PlayerContext);
 
-  // Load favorites
+  // Animation values cho gợn sóng và pulse
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const wave1 = useRef(new Animated.Value(0)).current;
+  const wave2 = useRef(new Animated.Value(0)).current;
+  const wave3 = useRef(new Animated.Value(0)).current;
+
+  // Animation cho gợn sóng khi đang phát nhạc
+  useEffect(() => {
+    if (isPlaying) {
+      // Pulse animation cho disc
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.05,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 800,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+
+      // Wave 1
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(wave1, {
+            toValue: 1,
+            duration: 2000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(wave1, {
+            toValue: 0,
+            duration: 0,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+
+      // Wave 2 (delayed)
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(700),
+          Animated.timing(wave2, {
+            toValue: 1,
+            duration: 2000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(wave2, {
+            toValue: 0,
+            duration: 0,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+
+      // Wave 3 (more delayed)
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(1400),
+          Animated.timing(wave3, {
+            toValue: 1,
+            duration: 2000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(wave3, {
+            toValue: 0,
+            duration: 0,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    } else {
+      // Reset về giá trị ban đầu khi dừng
+      pulseAnim.setValue(1);
+      wave1.setValue(0);
+      wave2.setValue(0);
+      wave3.setValue(0);
+    }
+  }, [isPlaying]);
+
+  // Load favorites and downloaded songs
   useEffect(() => {
     (async () => {
       const fav = await loadFavorites();
       setFavorites(fav || []);
+      
+      // Load downloaded songs
+      const downloaded = await loadDownloadedSongs();
+      setDownloadedSongs(downloaded || []);
     })();
   }, []);
 
@@ -1351,6 +1444,26 @@ export default function PlayerScreen({ route, navigation }) {
   const progress = duration ? position / duration : 0;
   const isFavorite = currentTrack ? favorites.includes(currentTrack.id) : false;
 
+  // Load downloaded songs from AsyncStorage
+  const loadDownloadedSongs = async () => {
+    try {
+      const stored = await AsyncStorage.getItem('downloadedSongs');
+      return stored ? JSON.parse(stored) : [];
+    } catch (error) {
+      console.error('Error loading downloaded songs:', error);
+      return [];
+    }
+  };
+
+  // Save downloaded songs to AsyncStorage
+  const saveDownloadedSongs = async (songIds) => {
+    try {
+      await AsyncStorage.setItem('downloadedSongs', JSON.stringify(songIds));
+    } catch (error) {
+      console.error('Error saving downloaded songs:', error);
+    }
+  };
+
   const toggleFavorite = async () => {
     if (!currentTrack) return;
     let newFav;
@@ -1361,6 +1474,69 @@ export default function PlayerScreen({ route, navigation }) {
     }
     setFavorites(newFav);
     await saveFavorites(newFav);
+  };
+
+  // Share song function
+  const handleShareSong = async () => {
+    if (!currentTrack) return;
+    
+    try {
+      const message = 
+        `🎵 Đang nghe "${currentTrack.title}" - ${currentTrack.artist}\n\n` +
+        `Album: ${currentTrack.album || 'Unknown'}\n` +
+        `Thể loại: ${currentTrack.genre || 'Unknown'}\n\n` +
+        `Tải app Mean Music để nghe nhạc hay!`;
+
+      const result = await Share.share({
+        message: message,
+        title: `Chia sẻ: ${currentTrack.title}`
+      });
+
+      if (result.action === Share.sharedAction) {
+        if (result.activityType) {
+          console.log('Shared via:', result.activityType);
+        } else {
+          console.log('Shared successfully');
+        }
+      }
+    } catch (error) {
+      Alert.alert('Lỗi', 'Không thể chia sẻ bài hát');
+      console.error(error);
+    }
+  };
+
+  const handleDownloadSong = async () => {
+    if (!currentTrack) return;
+    
+    // Kiểm tra xem bài hát đã được tải chưa
+    const isAlreadyDownloaded = downloadedSongs.includes(currentTrack.id);
+    
+    if (isAlreadyDownloaded) {
+      // Nếu đã tải rồi, hiển thị thông báo
+      setDownloadStatus('already');
+      setDownloadVisible(true);
+    } else {
+      // Nếu chưa tải, bắt đầu tải
+      setDownloadStatus('downloading');
+      setDownloadVisible(true);
+      
+      // Simulate download - sau 3s sẽ thành công
+      setTimeout(async () => {
+        setDownloadStatus('success');
+        
+        // Lưu vào danh sách đã tải
+        const newDownloaded = [...downloadedSongs, currentTrack.id];
+        setDownloadedSongs(newDownloaded);
+        await saveDownloadedSongs(newDownloaded);
+      }, 3000);
+    }
+  };
+
+  const closeDownloadModal = () => {
+    setDownloadVisible(false);
+    setTimeout(() => {
+      setDownloadStatus('downloading');
+    }, 300);
   };
 
   return (
@@ -1378,12 +1554,80 @@ export default function PlayerScreen({ route, navigation }) {
         <View style={styles.headerBtn} />
       </View>
 
-      {/* Disc/cover */}
+      {/* Disc/cover với gợn sóng */}
       {currentTrack?.cover && (
         <View style={styles.discWrapper}>
-          <View style={styles.discOuter}>
+          {/* Gợn sóng 3 */}
+          <Animated.View
+            style={[
+              styles.wave,
+              {
+                opacity: wave3.interpolate({
+                  inputRange: [0, 0.5, 1],
+                  outputRange: [0.6, 0.3, 0],
+                }),
+                transform: [
+                  {
+                    scale: wave3.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [1, 1.6],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          />
+          {/* Gợn sóng 2 */}
+          <Animated.View
+            style={[
+              styles.wave,
+              {
+                opacity: wave2.interpolate({
+                  inputRange: [0, 0.5, 1],
+                  outputRange: [0.6, 0.3, 0],
+                }),
+                transform: [
+                  {
+                    scale: wave2.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [1, 1.6],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          />
+          {/* Gợn sóng 1 */}
+          <Animated.View
+            style={[
+              styles.wave,
+              {
+                opacity: wave1.interpolate({
+                  inputRange: [0, 0.5, 1],
+                  outputRange: [0.6, 0.3, 0],
+                }),
+                transform: [
+                  {
+                    scale: wave1.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [1, 1.6],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          />
+          {/* Disc với pulse animation */}
+          <Animated.View
+            style={[
+              styles.discOuter,
+              {
+                transform: [{ scale: pulseAnim }],
+              },
+            ]}
+          >
             <Image source={currentTrack.cover} style={styles.discImage} />
-          </View>
+          </Animated.View>
         </View>
       )}
 
@@ -1430,10 +1674,92 @@ export default function PlayerScreen({ route, navigation }) {
         </TouchableOpacity>
       </View>
 
-      {/* Favorite button below controls */}
-      <TouchableOpacity onPress={toggleFavorite} style={styles.favoriteBtn}>
-        <Ionicons name={isFavorite ? 'heart' : 'heart-outline'} size={32} color={isFavorite ? '#FF5A5F' : '#aaa'} />
-      </TouchableOpacity>
+      {/* Share, Download and Favorite buttons below controls */}
+      <View style={styles.actionButtonsRow}>
+        <TouchableOpacity onPress={handleShareSong} style={styles.actionBtn}>
+          <Ionicons name="share-social" size={32} color="#9b6bff" />
+        </TouchableOpacity>
+        
+        <TouchableOpacity onPress={handleDownloadSong} style={styles.actionBtn}>
+          <Ionicons 
+            name={downloadedSongs.includes(currentTrack?.id) ? "checkmark-circle" : "download-outline"} 
+            size={32} 
+            color={downloadedSongs.includes(currentTrack?.id) ? "#0dc974" : "#ffd93d"} 
+          />
+        </TouchableOpacity>
+        
+        <TouchableOpacity onPress={toggleFavorite} style={styles.actionBtn}>
+          <Ionicons name={isFavorite ? 'heart' : 'heart-outline'} size={32} color={isFavorite ? '#FF5A5F' : '#aaa'} />
+        </TouchableOpacity>
+      </View>
+
+      {/* Volume Control */}
+      <View style={styles.volumeContainer}>
+        <Ionicons name="volume-low" size={20} color="#aaa" />
+        <Slider
+          style={styles.volumeSlider}
+          value={volume}
+          onValueChange={setVolume}
+          minimumValue={0}
+          maximumValue={1}
+          minimumTrackTintColor="#9b6bff"
+          maximumTrackTintColor="rgba(255,255,255,0.2)"
+          thumbTintColor="#9b6bff"
+        />
+        <Ionicons name="volume-high" size={20} color="#aaa" />
+      </View>
+
+      {/* Download Modal */}
+      <Modal visible={downloadVisible} transparent animationType="fade">
+        <View style={styles.downloadModalBg}>
+          <View style={styles.downloadModalContainer}>
+            {downloadStatus === 'downloading' ? (
+              <>
+                <View style={styles.downloadIconContainer}>
+                  <Ionicons name="cloud-download" size={60} color="#ffd93d" />
+                </View>
+                <Text style={styles.downloadTitle}>Đang tải nhạc...</Text>
+                <Text style={styles.downloadSubtitle}>{currentTrack?.title}</Text>
+                <View style={styles.loadingBar}>
+                  <View style={styles.loadingBarFill} />
+                </View>
+              </>
+            ) : downloadStatus === 'success' ? (
+              <>
+                <View style={styles.downloadIconContainer}>
+                  <Ionicons name="checkmark-circle" size={60} color="#0dc974" />
+                </View>
+                <Text style={styles.downloadTitle}>Tải về thành công!</Text>
+                <Text style={styles.downloadSubtitle}>
+                  Giờ bạn có thể nghe nhạc offline
+                </Text>
+                <TouchableOpacity 
+                  onPress={closeDownloadModal}
+                  style={styles.downloadCloseBtn}
+                >
+                  <Text style={styles.downloadCloseBtnText}>Đóng</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <View style={[styles.downloadIconContainer, { backgroundColor: 'rgba(155,107,255,0.15)' }]}>
+                  <Ionicons name="checkmark-done-circle" size={60} color="#9b6bff" />
+                </View>
+                <Text style={styles.downloadTitle}>Nhạc đã được tải sẵn</Text>
+                <Text style={styles.downloadSubtitle}>
+                  {currentTrack?.title}
+                </Text>
+                <TouchableOpacity 
+                  onPress={closeDownloadModal}
+                  style={[styles.downloadCloseBtn, { backgroundColor: '#9b6bff' }]}
+                >
+                  <Text style={styles.downloadCloseBtnText}>OK</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
 
       {/* Bottom curved button to open Lyrics */}
       <TouchableOpacity style={styles.lyricsTab} onPress={() => navigation.navigate('Lyrics')} activeOpacity={0.9}>
@@ -1449,9 +1775,32 @@ const styles = StyleSheet.create({
   header: { height: 64, paddingHorizontal: 16, alignSelf: 'stretch', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   headerBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { color: '#fff', fontWeight: '700', fontSize: 16 },
-  discWrapper: { marginTop: 24, marginBottom: 16 },
-  discOuter: { width: 240, height: 240, borderRadius: 120, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 2, borderColor: 'rgba(255,255,255,0.25)' },
+  discWrapper: { 
+    marginTop: 24, 
+    marginBottom: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  discOuter: { 
+    width: 240, 
+    height: 240, 
+    borderRadius: 120, 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    backgroundColor: 'rgba(255,255,255,0.08)', 
+    borderWidth: 2, 
+    borderColor: 'rgba(255,255,255,0.25)' 
+  },
   discImage: { width: 210, height: 210, borderRadius: 105 },
+  wave: {
+    position: 'absolute',
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    borderWidth: 2,
+    borderColor: '#9b6bff',
+    backgroundColor: 'transparent',
+  },
   title: { color: '#fff', fontWeight: '800', fontSize: 22, marginTop: 8 },
   artist: { color: '#ddd', fontSize: 14, marginBottom: 16 },
   waveBar: { alignSelf: 'stretch', marginHorizontal: 24, height: 40, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.08)', overflow: 'hidden', marginTop: 4, marginBottom: 10 },
@@ -1462,6 +1811,41 @@ const styles = StyleSheet.create({
   ctrlBtn: { width: 56, height: 56, borderRadius: 28, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
   playBtn: { width: 74, height: 74, borderRadius: 37, backgroundColor: '#8c3bff', alignItems: 'center', justifyContent: 'center' },
   repeatOne: { position: 'absolute', right: -4, top: -4, color: '#c69cff', fontSize: 10, fontWeight: '700' },
+  actionButtonsRow: {
+    flexDirection: 'row',
+    marginTop: 16,
+    gap: 16,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  actionBtn: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)'
+  },
+  volumeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'stretch',
+    marginHorizontal: 24,
+    marginTop: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(155,107,255,0.2)',
+    gap: 12
+  },
+  volumeSlider: {
+    flex: 1,
+    height: 40
+  },
   favoriteBtn: { 
     marginTop: 16, 
     width: 60, 
@@ -1474,4 +1858,74 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,90,95,0.3)'
   },
   lyricsTab: { position: 'absolute', bottom: Platform.OS === 'ios' ? 20 : 12, alignSelf: 'center', paddingHorizontal: 24, paddingVertical: 10, borderRadius: 14, backgroundColor: 'rgba(0,0,0,0.35)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)' },
+  
+  // Download Modal Styles
+  downloadModalBg: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.85)',
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  downloadModalContainer: {
+    width: '80%',
+    backgroundColor: '#1a1a1f',
+    borderRadius: 20,
+    padding: 32,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: 'rgba(155,107,255,0.3)',
+    shadowColor: '#9b6bff',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
+    elevation: 10
+  },
+  downloadIconContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(255,217,61,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20
+  },
+  downloadTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 8,
+    textAlign: 'center'
+  },
+  downloadSubtitle: {
+    fontSize: 15,
+    color: '#aaa',
+    textAlign: 'center',
+    marginBottom: 20
+  },
+  loadingBar: {
+    width: '100%',
+    height: 4,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 2,
+    overflow: 'hidden',
+    marginTop: 10
+  },
+  loadingBarFill: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#ffd93d',
+    animation: 'pulse 1.5s ease-in-out infinite'
+  },
+  downloadCloseBtn: {
+    backgroundColor: '#0dc974',
+    paddingVertical: 12,
+    paddingHorizontal: 32,
+    borderRadius: 12,
+    marginTop: 10
+  },
+  downloadCloseBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold'
+  }
 });
