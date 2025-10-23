@@ -83,8 +83,10 @@ export function PlayerProvider({ children }) {
                 nextIdx = (current + 1 >= list.length) ? (rpt === 'all' ? 0 : -1) : current + 1;
               }
               if (nextIdx === -1) {
+                // Đã hết playlist và không repeat all -> dừng lại
                 try { await s.stopAsync(); } catch (e) {}
                 setIsPlaying(false);
+                // KHÔNG thay đổi currentIndex, giữ nguyên ở bài cuối
               } else {
                 // do not await to avoid blocking the interval
                 setTimeout(() => { loadIndex(nextIdx, { play: true }); }, 20);
@@ -175,9 +177,11 @@ export function PlayerProvider({ children }) {
 
       if (nextIdx === -1) {
         // repeat off and at end -> stop
+        // KHÔNG gọi loadIndex(-1), chỉ dừng playback
         try { if (soundRef.current) soundRef.current.stopAsync().catch(() => {}); } catch (e) {}
         setIsPlaying(false);
         setPosition(status.durationMillis ?? (status.positionMillis ?? 0));
+        // Giữ nguyên currentIndex ở bài cuối cùng
         return;
       }
 
@@ -271,8 +275,22 @@ export function PlayerProvider({ children }) {
     const list = playlistRef.current; // Use ref
     const current = currentIndexRef.current;
     const shuffle = isShuffleRef.current;
+    const repeat = repeatModeRef.current;
+    
     if (!list || list.length === 0) return;
-    const nextIdx = shuffle ? randomIndex(current) : ((current + 1) % list.length);
+    
+    let nextIdx;
+    if (shuffle) {
+      nextIdx = randomIndex(current);
+    } else {
+      // Nếu đang ở bài cuối và không repeat all, wrap về đầu
+      if (current + 1 >= list.length) {
+        nextIdx = repeat === 'all' ? 0 : 0; // Luôn wrap về đầu khi nhấn next thủ công
+      } else {
+        nextIdx = current + 1;
+      }
+    }
+    
     await loadIndex(nextIdx, { play: true });
   }, [randomIndex, loadIndex]); // Use refs, remove state dependencies
 
